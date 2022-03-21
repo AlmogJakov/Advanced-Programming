@@ -84,6 +84,7 @@ void logoutDetails(struct utmp *ut) {
             printf ("\nstill logged in\n");
         }
     }
+    
     printf ("\n");
 }
 
