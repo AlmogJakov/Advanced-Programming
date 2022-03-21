@@ -61,7 +61,7 @@ void logoutDetails(struct utmp *ut) {
         char temp_utmpbuf[UTSIZE];
         while (bool < 1 && (read(temp_fd, temp_utmpbuf, UTSIZE) > 0)) {
             p = (struct utmp * ) &temp_utmpbuf;
-            if (strncmp(p->ut_line, ut->ut_line, sizeof(ut->ut_line)) == 0) {
+            if ((strncmp(p->ut_user,"shutdown",8)==0) || (strncmp(p->ut_line, ut->ut_line, sizeof(ut->ut_line)) == 0)) {
                 temp_tv.tv_sec = p->ut_tv.tv_sec;
                 temp_tv.tv_usec = p->ut_tv.tv_usec;
                 time_t rawtime = temp_tv.tv_sec;
@@ -69,6 +69,15 @@ void logoutDetails(struct utmp *ut) {
                 close(temp_fd);
                 bool++;
             }
+        }
+        if (bool > 0) { /* Optional record found */
+            /* The first record found is a computer shutdown record. print "down" */
+            if ((strncmp(p->ut_user,"shutdown",8)==0)) printf (" down\n");
+            /* The first record found is another login record (of the same user)
+               Apparently there was a crash. */
+            else if (p->ut_type == USER_PROCESS) printf (" crash\n");
+            /* The user has logged off normally */
+            else if (p->ut_type == DEAD_PROCESS) printf (" good\n"); /*  */
         }
         close(temp_fd);
         if (bool==0) {
