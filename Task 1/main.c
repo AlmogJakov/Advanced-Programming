@@ -52,6 +52,18 @@ void print_time(time_t rawtime,struct timeval *time_login){
         }
 }
 
+void print_status_user(struct utmp *p, time_t rawtime){
+        /* The first record found is a computer shutdown record. print "down" */
+        if ((strncmp(p->ut_user, "shutdown", 8) == 0))
+                printf(" - down  ");
+        /* The first record found is another login record (of the same user)
+        Apparently there was a crash. */
+        else if (p->ut_type == USER_PROCESS || p->ut_type == BOOT_TIME)
+                printf(" - crash ");
+        /* The user has logged off normally */
+        else if (p->ut_type == DEAD_PROCESS)
+                printf(" - %-5.5s ", 11 + ctime(&rawtime)); /*  */
+}
 
 void logoutDetails(struct utmp *ut, struct timeval *time_login)
 {
@@ -72,6 +84,8 @@ void logoutDetails(struct utmp *ut, struct timeval *time_login)
                                 temp_tv.tv_sec = p->ut_tv.tv_sec;
                                 temp_tv.tv_usec = p->ut_tv.tv_usec;
                                 time_t rawtime = temp_tv.tv_sec;
+                                printf(" - %-5.5s ", 11 + ctime(&rawtime)); /*  */
+
                                 print_time(rawtime, time_login);
                                 bool ++;
                         }
@@ -79,7 +93,7 @@ void logoutDetails(struct utmp *ut, struct timeval *time_login)
                 close(temp_fd);
                 if (bool == 0)
                 {
-                        printf("\nstill running\n");
+                        printf("   still running");
                 }
         }
         else if (ut->ut_type == USER_PROCESS)
@@ -93,21 +107,13 @@ void logoutDetails(struct utmp *ut, struct timeval *time_login)
                 while (bool < 1 && (read(temp_fd, temp_utmpbuf, UTSIZE) > 0))
                 {
                         p = (struct utmp *)&temp_utmpbuf;
-                        if ((strncmp(p->ut_user, "shutdown", 8) == 0) || (strncmp(p->ut_line, ut->ut_line, sizeof(ut->ut_line)) == 0))
+                        if ((strncmp(p->ut_user, "shutdown", 8) == 0) || (strncmp(p->ut_user, "reboot", 6) == 0) || (strncmp(p->ut_line, ut->ut_line, sizeof(ut->ut_line)) == 0))
                         {
-                                /* The first record found is a computer shutdown record. print "down" */
-                                if ((strncmp(p->ut_user, "shutdown", 8) == 0))
-                                        printf(" - down ");
-                                /* The first record found is another login record (of the same user)
-                                Apparently there was a crash. */
-                                else if (p->ut_type == USER_PROCESS)
-                                        printf(" - crash ");
-                                /* The user has logged off normally */
-                                else if (p->ut_type == DEAD_PROCESS)
-                                        printf(" - good "); /*  */
+
                                 temp_tv.tv_sec = p->ut_tv.tv_sec;
                                 temp_tv.tv_usec = p->ut_tv.tv_usec;
                                 time_t rawtime = temp_tv.tv_sec;
+                                print_status_user(p, rawtime);
 
                                 print_time(rawtime, time_login);
                                 close(temp_fd);
@@ -117,7 +123,7 @@ void logoutDetails(struct utmp *ut, struct timeval *time_login)
                 close(temp_fd);
                 if (bool == 0)
                 {
-                        printf("\nstill logged in\n");
+                        printf("   still logged in");
                 }
         }
 
@@ -130,22 +136,14 @@ void show_info(struct utmp *utbufp)
         struct timeval temp_tv;
         temp_tv.tv_sec = utbufp->ut_tv.tv_sec;
         temp_tv.tv_usec = utbufp->ut_tv.tv_usec;
-
-        //     if (_HAVE_UT_TYPE)
-        //             printf("[%d] ", utbufp->ut_type);
-
-        //     if (_HAVE_UT_PID)
-        //             printf("[%05d] ", utbufp->ut_pid);
-        //     if (_HAVE_UT_ID)
-        //             printf("[%-4.4s] ", utbufp->ut_id);
-        printf("%-8.8s %-12.12s", utbufp->ut_user, utbufp->ut_line);
-        if (_HAVE_UT_HOST)
-                printf(" %-16.16s", utbufp->ut_host);
-        printf(" %-15.15s", ctime(&temp_tv.tv_sec));
-        //     if (_HAVE_UT_TV)
-        //             printf(" [%ld]", (long int) temp_tv.tv_usec); // "\n"
-        /* The arguments.  */
-        logoutDetails(temp, &temp_tv);
+        if ((utbufp->ut_type == USER_PROCESS || utbufp->ut_type == BOOT_TIME))
+        {
+                printf("%-8.8s %-12.12s", utbufp->ut_user, utbufp->ut_line);
+                if (_HAVE_UT_HOST)
+                        printf(" %-16.16s", utbufp->ut_host);
+                printf(" %-16.16s", ctime(&temp_tv.tv_sec));
+                logoutDetails(temp, &temp_tv);
+        }
 }
 
 int main()
@@ -157,6 +155,7 @@ int main()
                 cur_rec++;
         }
         close(fd);
+        printf("%d\n", cur_rec);
         printf("FINISH!\n");
         return 0;
 }
