@@ -56,13 +56,14 @@ void print_user_logout_status(struct utmp *p, time_t rawtime){
 
 /* print the tail of the utmp details (logout status, logout time etc.) */
 void print_info_tail(struct utmp *ut, struct timeval *time_login) {
+        int place = lseek(fd, 0, SEEK_CUR);
         if (ut->ut_type == BOOT_TIME) {
                 int bool = 0;
                 strcpy(ut->ut_line, "system boot");
                 struct utmp *p;
                 struct timeval temp_tv;
                 int temp_fd = get_wtmp_fd();
-                lseek(temp_fd, (cur_rec + 1) * UTSIZE, SEEK_CUR);
+                lseek(temp_fd, place, SEEK_CUR);
                 char temp_utmpbuf[UTSIZE];
                 while (bool < 1 && (read(temp_fd, temp_utmpbuf, UTSIZE) > 0)) {
                         p = (struct utmp *)&temp_utmpbuf;
@@ -84,7 +85,7 @@ void print_info_tail(struct utmp *ut, struct timeval *time_login) {
                 struct utmp *p;
                 struct timeval temp_tv;
                 int temp_fd = get_wtmp_fd();
-                lseek(temp_fd, (cur_rec + 1) * UTSIZE, SEEK_CUR);
+                lseek(temp_fd, place, SEEK_CUR);
                 char temp_utmpbuf[UTSIZE];
                 while (bool < 1 && (read(temp_fd, temp_utmpbuf, UTSIZE) > 0)) {
                         p = (struct utmp *)&temp_utmpbuf;
@@ -123,18 +124,34 @@ void print_info(struct utmp *utbufp) {
         }
 }
 
+int itay(){
+        int num_of_rec = 0;
+        while (read(fd, utmpbuf, UTSIZE) > 0)
+        {
+                        struct utmp *p = (struct utmp *)&utmpbuf;
+                        if ((p->ut_type == USER_PROCESS || p->ut_type == BOOT_TIME))num_of_rec++;
+        }
+        return num_of_rec; 
+}
+
 int main(int argc, char *argv[]) {
         fd = get_wtmp_fd();
+        int size_of_record = itay();
+        int rec_to_print = size_of_record;
         if (argc > 1) {
-                printf("number of args: %d",argc);
-                return 0;
+                rec_to_print =  atoi(argv[1]);
         }
-        while ((read(fd, utmpbuf, UTSIZE) > 0)) {
-                print_info((struct utmp *)&utmpbuf);
-                cur_rec++;
+        lseek(fd, - UTSIZE, SEEK_END);
+
+        while ((read(fd, utmpbuf, UTSIZE) > 0) && rec_to_print > 0) {
+                struct utmp *p = (struct utmp *)&utmpbuf;
+                if ((p->ut_type == USER_PROCESS || p->ut_type == BOOT_TIME)){
+                        rec_to_print--;
+                        print_info((struct utmp *)&utmpbuf);
+                }
+                lseek(fd, - UTSIZE * 2, SEEK_CUR);
         }
         close(fd);
-        //printf("%d\n", cur_rec);
         fd = get_wtmp_fd();
         if ((read(fd, utmpbuf, UTSIZE) > 0)) {
                 struct utmp *p = (struct utmp *)&utmpbuf;
