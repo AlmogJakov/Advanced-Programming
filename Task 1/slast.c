@@ -139,7 +139,8 @@ int main(int argc, char *argv[]) {
         int size_of_record = itay();
         int rec_to_print = size_of_record;
         if (argc > 1) {
-                rec_to_print =  atoi(argv[1]);
+                int x =  atoi(argv[1]);
+                if (x < size_of_record)rec_to_print = x;
         }
         lseek(fd, - UTSIZE, SEEK_END);
 
