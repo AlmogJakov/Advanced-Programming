@@ -30,6 +30,8 @@ int lvl_checkpoint[1000];
 
 # define DT_REG 8
 # define DT_DIR 4
+# define IGNORE_ -500 
+
 // https://sites.uclouvain.be/SystInfo/usr/include/dirent.h.html
 
 int getNumOfFiles(const char *pathname) {
@@ -60,24 +62,22 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     if (S_ISDIR(sbuf->st_mode)) {
         lvl_checkpoint[ftwb->level] = getNumOfFiles(pathname);
     }
-    lvl_checkpoint[ftwb->level-1]--;
-    
-    // if (type == FTW_NS) {                  /* Could not stat() file */
-    //     printf("?");
-    // } else {
-    //     switch (sbuf->st_mode & S_IFMT) {  /* Print file type */
-    //     case S_IFREG:  printf("-"); break;
-    //     case S_IFDIR:  printf("d"); break;
-    //     case S_IFCHR:  printf("c"); break;
-    //     case S_IFBLK:  printf("b"); break;
-    //     case S_IFLNK:  printf("l"); break;
-    //     case S_IFIFO:  printf("p"); break;
-    //     case S_IFSOCK: printf("s"); break;
-    //     default:       printf("?"); break; /* Should never happen (on Linux) */
-    //     }
-    // }
-    
-    //printf(" %*s", 4 * ftwb->level, " ");         /* Indent suitably */
+    if (lvl_checkpoint[ftwb->level-1]>= 0)
+    {
+        lvl_checkpoint[ftwb->level-1]--;
+    }
+
+    if ('.' == pathname[ftwb->base] && S_ISDIR(sbuf->st_mode)){
+        lvl_checkpoint[ftwb->level] = IGNORE_;
+        return 0;
+    }
+    else if ('.' == pathname[ftwb->base]){
+        return 0;
+    }
+    else if (lvl_checkpoint[ftwb->level - 1] <= IGNORE_){
+        lvl_checkpoint[ftwb->level] = IGNORE_;
+        return 0;
+    }
 
     for (int i = 0; i < ftwb->level-1; i++) {
         if (lvl_checkpoint[i]>0) printf("│   ");
