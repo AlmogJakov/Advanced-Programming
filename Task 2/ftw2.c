@@ -39,9 +39,10 @@ int getNumOfFiles(const char *pathname) {
     dirp = opendir(pathname); /* There should be error handling after this */
     while ((entry = readdir(dirp)) != NULL) {
         /* If the entry is a regular file or dir */
-        if (entry->d_type == DT_REG || entry->d_type == DT_DIR) {
+        //if (entry->d_type == DT_REG || entry->d_type == DT_DIR) {
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) 
-                file_count++;}}
+                file_count++;}
+        //}
     closedir(dirp);
     return file_count;
 }
@@ -89,7 +90,7 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
 
     //if (lvl_checkpoint[ftwb->level-1] >= 0) lvl_checkpoint[ftwb->level-1]--;
     //printf("%d", lvl_checkpoint[ftwb->level-1]);
-    //printf("%d", ftwb->level);
+    // printf("%d", ftwb->level);
 
     printf(" [");
     if (type != FTW_NS) {
