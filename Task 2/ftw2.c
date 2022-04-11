@@ -30,7 +30,7 @@ int files_counter = 0;
 # define DT_DIR 4
 // https://sites.uclouvain.be/SystInfo/usr/include/dirent.h.html
 
-int getNumOfFiles(char *pathname) {
+int getNumOfFiles(const char *pathname) {
     int file_count = 0;
     DIR * dirp;
     struct dirent * entry;
