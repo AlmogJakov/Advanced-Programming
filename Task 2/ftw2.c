@@ -25,7 +25,8 @@
 
 int direcory_counter = 0;
 int files_counter = 0;
-
+int maxSpace = 1000;
+int arrOfSpace[1000];
 # define DT_REG 8
 # define DT_DIR 4
 // https://sites.uclouvain.be/SystInfo/usr/include/dirent.h.html
@@ -49,28 +50,31 @@ static int              /* Callback function called by ftw() */
 dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftwb) {
     if (strcmp("." , &pathname[ftwb->base]) == 0) {
         printf(".\n");
+        arrOfSpace[0] = getNumOfFiles(pathname);
         return 0;
     }
-    
-    // if (type == FTW_NS) {                  /* Could not stat() file */
-    //     printf("?");
-    // } else {
-    //     switch (sbuf->st_mode & S_IFMT) {  /* Print file type */
-    //     case S_IFREG:  printf("-"); break;
-    //     case S_IFDIR:  printf("d"); break;
-    //     case S_IFCHR:  printf("c"); break;
-    //     case S_IFBLK:  printf("b"); break;
-    //     case S_IFLNK:  printf("l"); break;
-    //     case S_IFIFO:  printf("p"); break;
-    //     case S_IFSOCK: printf("s"); break;
-    //     default:       printf("?"); break; /* Should never happen (on Linux) */
-    //     }
-    // }
-    printf(" %*s", 4 * ftwb->level, " ");         /* Indent suitably */
+
+    int place = ftwb->level;
+    if(S_ISDIR(sbuf->st_mode)){
+
+        int numOfFile = getNumOfFiles(pathname); // enter the number of file
+        arrOfSpace[place] = numOfFile;
+    }
+
+    for (int i = 0; i < ftwb->level-1 && i < maxSpace; i++){
+        if (arrOfSpace[i] > 1)printf("│   ");
+        else if (arrOfSpace[i] == 1)printf("└── ");
+        else printf("    ");
+    }
+
+    if(arrOfSpace[ftwb->level - 1] > 1)printf("├── ");
+    else printf("└── ");
+    arrOfSpace[ftwb->level - 1]--;
+
+    if(ftwb->level > maxSpace)printf(" %*s", 4 * ftwb->level, " ");         /* Indent suitably */
     printf("[");
     if (type != FTW_NS) {
-        //printf("%7ld ", (long) sbuf->st_ino);
-        //printf("%3o", sbuf->st_mode&0777);
+
         printf( (S_ISDIR(sbuf->st_mode)) ? "d" : "-");
         printf( (sbuf->st_mode & S_IRUSR) ? "r" : "-");
         printf( (sbuf->st_mode & S_IWUSR) ? "w" : "-");
@@ -86,17 +90,12 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf(" %s ",pws->pw_name);
         struct group *grp = getgrgid(sbuf->st_gid);
         printf(" %7s ",grp->gr_name);
-        //printf("%40s\n", ptr);     home
         printf(" %14ld] ",sbuf->st_size);
-        //printf(" Base:%d ",ftwb->base);
-        //printf(" Level:%d ",ftwb->level);
+
     } else
         printf("        ");
-    // printf(" %*s", 4 * ftwb->level, " ");         /* Indent suitably */
     if (S_ISDIR(sbuf->st_mode)) { /* Print basename */
-        //printf(" \x1B[32m%s\033[0m\n",  &pathname[ftwb->base]);
-        // printf(" \033[0;34m%s\033[0m\n",  &pathname[ftwb->base]); // regular blue
-        printf(" \033[1m\033[34m%s\033[0m\n",  &pathname[ftwb->base]); // bold blue
+       printf(" \033[1m\033[34m%s\033[0m\n",  &pathname[ftwb->base]); // bold blue
     } else if (sbuf->st_mode & S_IWOTH || sbuf->st_mode & S_IXOTH) {
         printf(" \033[1m\033[32m%s\033[0m\n",  &pathname[ftwb->base]); // bold green
     } else {
@@ -107,7 +106,6 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     else files_counter++;
 
     return 0;                                   /* Tell nftw() to continue */
-    //return FTW_CONTINUE;
 }
 
 
