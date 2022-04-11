@@ -25,12 +25,22 @@
 
 int direcory_counter = 0;
 int files_counter = 0;
-
 int lvl_checkpoint[1000];
+//int is_referenced = 0;
 
 # define DT_REG 8
 # define DT_DIR 4
-# define IGNORE_ -500 
+# define DT_LNK 10
+# define DT_UNKNOWN 0
+# define DT_FIFO 1
+# define DT_CHR 2
+# define DT_BLK 6
+# define DT_LNK 10
+# define DT_SOCK 12
+# define DT_WHT 14
+# define IGNORE_ -500
+
+
 
 // https://sites.uclouvain.be/SystInfo/usr/include/dirent.h.html
 
@@ -42,9 +52,12 @@ int getNumOfFiles(const char *pathname) {
     while ((entry = readdir(dirp)) != NULL) {
         /* If the entry is a regular file or dir */
         //if (entry->d_type == DT_REG || entry->d_type == DT_DIR) {
-            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) 
-                file_count++;}
-        //}
+            if (((entry->d_name)[0] != '.') && (entry->d_type != DT_LNK)) {
+                file_count++;
+                //if (a==0) {printf("%s\n", entry->d_name);}
+                //if (entry->d_type != DT_DIR || entry->d_type != DT_REG) printf("\nFile: %s\n",entry->d_name);
+            }
+        }
     closedir(dirp);
     return file_count;
 }
@@ -58,21 +71,37 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf("\033[1m\033[34m.\033[0m\n"); // print dot in bold blue
         return 0;
     }
-    //printf("\n%d\n", ftwb->level);
+
+    // if (S_ISLNK(sbuf->st_mode) {
+    //     printf("\n%s", sbuf->);
+    //     return 0;
+    // }
+    // if (S_ISLNK(sbuf->st_mode) && is_referenced==0) { // first print
+    //     is_referenced = 1;
+    //     printf("link");
+    //     //printf("|%d\n", ftwb->level);
+    //     //printf("%d|", lvl_checkpoint[ftwb->level-1]);
+    //     return 0;
+    // } else if (S_ISLNK(sbuf->st_mode)) {
+    //     return 0;
+    // } else {
+    //     is_referenced = 0;
+    // }
+    
+
     if (S_ISDIR(sbuf->st_mode)) {
         lvl_checkpoint[ftwb->level] = getNumOfFiles(pathname);
     }
-    if (lvl_checkpoint[ftwb->level-1]>= 0)
-    {
-        lvl_checkpoint[ftwb->level-1]--;
-    }
-
+    
     if ('.' == pathname[ftwb->base] && S_ISDIR(sbuf->st_mode)){
         lvl_checkpoint[ftwb->level] = IGNORE_;
         return 0;
     }
     else if ('.' == pathname[ftwb->base]){
         return 0;
+    }
+    if (lvl_checkpoint[ftwb->level-1]>= 0) {
+        lvl_checkpoint[ftwb->level-1]--;
     }
     else if (lvl_checkpoint[ftwb->level - 1] <= IGNORE_){
         lvl_checkpoint[ftwb->level] = IGNORE_;
