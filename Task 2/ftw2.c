@@ -40,6 +40,32 @@ int lvl_checkpoint[1000];
 # define DT_WHT 14
 # define IGNORE_ -500
 
+// // https://stackoverflow.com/questions/56066067/how-to-check-if-a-symbolic-link-refers-to-a-directory
+// int IsDir(const char *path) {
+//     int newSize = 1 + strlen(path) + 1;
+//     char * newBuffer = (char *)malloc(newSize);
+
+//     // do the copy and concat
+//     strcpy(newBuffer,path);
+//     //strcat(newBuffer,buffer); // or strncat
+//     newBuffer[newSize-2] = '/';
+//     //std::string tmp = path;
+//     //tmp += '/';
+//     struct stat statbuf;
+//     int res = (lstat(newBuffer, &statbuf) >= 0) && S_ISDIR(statbuf.st_mode);
+//     free(newBuffer);
+//     return res;
+// }
+
+int IsDir(const char *path) {
+    // https://stackoverflow.com/questions/56066067/how-to-check-if-a-symbolic-link-refers-to-a-directory
+    // https://stackoverflow.com/questions/1563168/example-of-realpath-function-in-c
+    char buf[1000];
+    realpath(path, buf);
+    struct stat path_stat;
+    stat(buf, &path_stat);
+    return S_ISDIR(path_stat.st_mode);
+}
 
 
 // https://sites.uclouvain.be/SystInfo/usr/include/dirent.h.html
@@ -52,16 +78,20 @@ int getNumOfFiles(const char *pathname) {
     while ((entry = readdir(dirp)) != NULL) {
         /* If the entry is a regular file or dir */
         //if (entry->d_type == DT_REG || entry->d_type == DT_DIR) {
-            if (((entry->d_name)[0] != '.') && (entry->d_type != DT_LNK)) {
+            if (((entry->d_name)[0] != '.')) { //  && (entry->d_type != DT_LNK)
                 file_count++;
                 //if (a==0) {printf("%s\n", entry->d_name);}
                 //if (entry->d_type != DT_DIR || entry->d_type != DT_REG) printf("\nFile: %s\n",entry->d_name);
             }
+            // if (((entry->d_name)[0] != '.') && (entry->d_type == DT_LNK)) {
+            //    printf("%s\n",entry->d_name);
+            // }
         }
     closedir(dirp);
     return file_count;
 }
 
+// https://man7.org/linux/man-pages/man3/ftw.3.html
 
 static int              /* Callback function called by ftw() */
 dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftwb) {
@@ -71,6 +101,9 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf("\033[1m\033[34m.\033[0m\n"); // print dot in bold blue
         return 0;
     }
+    //printf(" %s",  &pathname[ftwb->base]);
+    //printf("%d",type);
+    
 
     // if (S_ISLNK(sbuf->st_mode) {
     //     printf("\n%s", sbuf->);
@@ -93,13 +126,26 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         lvl_checkpoint[ftwb->level] = getNumOfFiles(pathname);
     }
     
-    if ('.' == pathname[ftwb->base] && S_ISDIR(sbuf->st_mode)){
+    if ('.' == pathname[ftwb->base] && S_ISDIR(sbuf->st_mode)){ //  && S_ISDIR(sbuf->st_mode)
         lvl_checkpoint[ftwb->level] = IGNORE_;
-        return 0;
+        return 2;
     }
     else if ('.' == pathname[ftwb->base]){
-        return 0;
+        return 2;
     }
+
+
+
+    // if (S_ISLNK(sbuf->st_mode) && (type == 4 || type == FTW_SL)) { // S_ISLNK(sbuf->st_mode)
+    //     printf(" %s",  pathname);
+    //     printf(" %d",type);
+    //     printf(" link \n");
+    //     //return 0; //FTW_NS
+    // } else if (S_ISLNK(sbuf->st_mode)) {
+    //     return 0;
+    // }
+
+
     if (lvl_checkpoint[ftwb->level-1]>= 0) {
         lvl_checkpoint[ftwb->level-1]--;
     }
@@ -125,7 +171,8 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     if (type != FTW_NS) {
         //printf("%7ld ", (long) sbuf->st_ino);
         //printf("%3o", sbuf->st_mode&0777);
-        printf( (S_ISDIR(sbuf->st_mode)) ? "d" : "-");
+        if (S_ISLNK(sbuf->st_mode) && IsDir(pathname)) printf("l");
+        else printf( (S_ISDIR(sbuf->st_mode)) ? "d" : "-");
         printf( (sbuf->st_mode & S_IRUSR) ? "r" : "-");
         printf( (sbuf->st_mode & S_IWUSR) ? "w" : "-");
         printf( (sbuf->st_mode & S_IXUSR) ? "x" : "-");
@@ -157,7 +204,16 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf(" %s\n",  &pathname[ftwb->base]);     /* Print basename */
     }
 
-    if (S_ISDIR(sbuf->st_mode)) direcory_counter++;
+    // // https://stackoverflow.com/questions/56066067/how-to-check-if-a-symbolic-link-refers-to-a-directory
+    // // https://stackoverflow.com/questions/1563168/example-of-realpath-function-in-c
+    // char buf[1000];
+    // realpath(pathname, buf);
+    // struct stat path_stat;
+    // stat(buf, &path_stat);
+
+
+    //if (S_ISLNK(sbuf->st_mode)) printf("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww %s", pathname);
+    if (S_ISDIR(sbuf->st_mode) || (S_ISLNK(sbuf->st_mode) && IsDir(pathname))) direcory_counter++;
     else files_counter++;
 
     return 0;                                   /* Tell nftw() to continue */
@@ -175,7 +231,7 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    if (nftw(argv[1], dirTree, 10, flags) == -1) {
+    if (nftw(argv[1], dirTree, 10, 16 | FTW_PHYS) == -1) {
         perror("nftw");
         exit(EXIT_FAILURE);
     }
