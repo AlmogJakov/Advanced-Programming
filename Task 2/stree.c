@@ -15,10 +15,10 @@
 /* The feature test macro _GNU_SOURCE must be defined (before
    including any header files) in order to obtain the
    definition of FTW_ACTIONRETVAL from <ftw.h>.
-   #define _GNU_SOURCE 1
-   TODO: fix
+   #define _GNU_SOURCE 0
    source: https://man7.org/linux/man-pages/man3/ftw.3.html
 */
+#define _GNU_SOURCE 0
 #define _XOPEN_SOURCE 600 /* Get nftw() */
 #include <ftw.h>
 #include <sys/types.h>    /* Type definitions used by many programs */
@@ -38,21 +38,6 @@
 int direcory_counter = 0;
 int files_counter = 0;
 int numOfFilesInlvl[1000];
-
-# define DT_REG 8
-# define DT_DIR 4
-# define DT_LNK 10
-# define DT_UNKNOWN 0
-# define DT_FIFO 1
-# define DT_CHR 2
-# define DT_BLK 6
-# define DT_LNK 10
-# define DT_SOCK 12
-# define DT_WHT 14
-# define FTW_CONTINUE 2
-/* FTW_ACTIONRETVAL: nftw() flag to handles the return value from fn() differently. */
-# define FTW_ACTIONRETVAL 16
-
 
 int IsDir(const char *path) {
     // https://stackoverflow.com/questions/56066067/how-to-check-if-a-symbolic-link-refers-to-a-directory
@@ -102,7 +87,7 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     }
     // if start with '.' just ignored subtree and continue to the sibling
     if ('.' == pathname[ftwb->base]){
-        return FTW_CONTINUE;
+        return FTW_SKIP_SUBTREE;
     }
     if (numOfFilesInlvl[ftwb->level-1]>= 0) {
         numOfFilesInlvl[ftwb->level-1]--;
@@ -154,6 +139,7 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
 
     if (S_ISDIR(sbuf->st_mode) || (S_ISLNK(sbuf->st_mode) && IsDir(pathname))) direcory_counter++;
     else files_counter++;
+
     return 0; /* Tell nftw() to continue */
 }
 
