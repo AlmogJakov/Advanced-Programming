@@ -39,6 +39,7 @@ int lvl_checkpoint[1000];
 # define DT_SOCK 12
 # define DT_WHT 14
 # define IGNORE_ -500
+# define FTW_CONTINUE 2
 
 // // https://stackoverflow.com/questions/56066067/how-to-check-if-a-symbolic-link-refers-to-a-directory
 // int IsDir(const char *path) {
@@ -67,6 +68,12 @@ int IsDir(const char *path) {
     return S_ISDIR(path_stat.st_mode);
 }
 
+void printSymLnkTarget(const char *path) {
+    char target[1000];
+    memset(target,'\0',1000);
+    readlink(path, target, 1000);
+    printf("%s",target);
+}
 
 // https://sites.uclouvain.be/SystInfo/usr/include/dirent.h.html
 
@@ -101,26 +108,6 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf("\033[1m\033[34m.\033[0m\n"); // print dot in bold blue
         return 0;
     }
-    //printf(" %s",  &pathname[ftwb->base]);
-    //printf("%d",type);
-    
-
-    // if (S_ISLNK(sbuf->st_mode) {
-    //     printf("\n%s", sbuf->);
-    //     return 0;
-    // }
-    // if (S_ISLNK(sbuf->st_mode) && is_referenced==0) { // first print
-    //     is_referenced = 1;
-    //     printf("link");
-    //     //printf("|%d\n", ftwb->level);
-    //     //printf("%d|", lvl_checkpoint[ftwb->level-1]);
-    //     return 0;
-    // } else if (S_ISLNK(sbuf->st_mode)) {
-    //     return 0;
-    // } else {
-    //     is_referenced = 0;
-    // }
-    
 
     if (S_ISDIR(sbuf->st_mode)) {
         lvl_checkpoint[ftwb->level] = getNumOfFiles(pathname);
@@ -128,23 +115,11 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     
     if ('.' == pathname[ftwb->base] && S_ISDIR(sbuf->st_mode)){ //  && S_ISDIR(sbuf->st_mode)
         lvl_checkpoint[ftwb->level] = IGNORE_;
-        return 2;
+        return FTW_CONTINUE;
     }
     else if ('.' == pathname[ftwb->base]){
-        return 2;
+        return FTW_CONTINUE;
     }
-
-
-
-    // if (S_ISLNK(sbuf->st_mode) && (type == 4 || type == FTW_SL)) { // S_ISLNK(sbuf->st_mode)
-    //     printf(" %s",  pathname);
-    //     printf(" %d",type);
-    //     printf(" link \n");
-    //     //return 0; //FTW_NS
-    // } else if (S_ISLNK(sbuf->st_mode)) {
-    //     return 0;
-    // }
-
 
     if (lvl_checkpoint[ftwb->level-1]>= 0) {
         lvl_checkpoint[ftwb->level-1]--;
@@ -162,11 +137,6 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     if (lvl_checkpoint[ftwb->level-1] > 0) printf("├──");
     else if (lvl_checkpoint[ftwb->level-1] == 0) printf("└──");
     else printf("│  ");
-
-    //if (lvl_checkpoint[ftwb->level-1] >= 0) lvl_checkpoint[ftwb->level-1]--;
-    //printf("%d", lvl_checkpoint[ftwb->level-1]);
-    // printf("%d", ftwb->level);
-
     printf(" [");
     if (type != FTW_NS) {
         //printf("%7ld ", (long) sbuf->st_ino);
@@ -187,18 +157,23 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf(" %s ",pws->pw_name);
         struct group *grp = getgrgid(sbuf->st_gid);
         printf(" %7s ",grp->gr_name);
-        //printf("%40s\n", ptr);     home
         printf(" %14ld] ",sbuf->st_size);
-        //printf(" Base:%d ",ftwb->base);
-        //printf(" Level:%d ",ftwb->level);
     } else
         printf("        ");
     // printf(" %*s", 4 * ftwb->level, " ");         /* Indent suitably */
-    if (S_ISDIR(sbuf->st_mode)) { /* Print basename */
-        //printf(" \x1B[32m%s\033[0m\n",  &pathname[ftwb->base]);
-        // printf(" \033[0;34m%s\033[0m\n",  &pathname[ftwb->base]); // regular blue
+
+    // permissions colors: https://askubuntu.com/questions/17299/what-do-the-different-colors-mean-in-ls
+    // https://unix.stackexchange.com/questions/94498/what-causes-this-green-background-in-ls-output
+    if (S_ISDIR(sbuf->st_mode) && sbuf->st_mode & S_IWUSR 
+        && sbuf->st_mode & S_IWGRP && sbuf->st_mode & S_IWOTH) { /* Print basename */
+        printf(" \033[0m\033[34;42m%s\033[0m\n",  &pathname[ftwb->base]); // blue with green background
+    } else if (S_ISLNK(sbuf->st_mode)) {
+        printf(" \033[1m\033[36m%s\033[0m -> ",  &pathname[ftwb->base]); // bold Cyan
+        printSymLnkTarget(pathname);
+        printf("\n");
+    } else if (S_ISDIR(sbuf->st_mode)) {
         printf(" \033[1m\033[34m%s\033[0m\n",  &pathname[ftwb->base]); // bold blue
-    } else if (sbuf->st_mode & S_IWOTH || sbuf->st_mode & S_IXOTH) {
+    } else if (sbuf->st_mode & S_IXUSR) {
         printf(" \033[1m\033[32m%s\033[0m\n",  &pathname[ftwb->base]); // bold green
     } else {
         printf(" %s\n",  &pathname[ftwb->base]);     /* Print basename */
@@ -211,8 +186,6 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
     // struct stat path_stat;
     // stat(buf, &path_stat);
 
-
-    //if (S_ISLNK(sbuf->st_mode)) printf("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww %s", pathname);
     if (S_ISDIR(sbuf->st_mode) || (S_ISLNK(sbuf->st_mode) && IsDir(pathname))) direcory_counter++;
     else files_counter++;
 
