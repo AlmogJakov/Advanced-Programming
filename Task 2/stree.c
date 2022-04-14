@@ -35,14 +35,18 @@
 // https://pubs.opengroup.org/onlinepubs/009695299/functions/nftw.html
 // https://code.woboq.org/gcc/gcc/tree.c.html
 
+# define MAX_DEPTH 1000
+# define MAX_PATH_LENGTH 1000
+
 int direcory_counter = 0;
 int files_counter = 0;
-int numOfFilesInlvl[1000];
+int numOfFilesInlvl[MAX_DEPTH];
+int first_iteration = 1;
 
 int IsDir(const char *path) {
     // https://stackoverflow.com/questions/56066067/how-to-check-if-a-symbolic-link-refers-to-a-directory
     // https://stackoverflow.com/questions/1563168/example-of-realpath-function-in-c
-    char buf[1000];
+    char buf[MAX_PATH_LENGTH];
     realpath(path, buf);
     struct stat path_stat;
     stat(buf, &path_stat);
@@ -50,9 +54,9 @@ int IsDir(const char *path) {
 }
 
 void printSymLnkTarget(const char *path) {
-    char target[1000];
-    memset(target,'\0',1000);
-    readlink(path, target, 1000);
+    char target[MAX_PATH_LENGTH];
+    memset(target,'\0',MAX_PATH_LENGTH);
+    readlink(path, target, MAX_PATH_LENGTH);
     printf("%s",target);
 }
 
@@ -76,9 +80,11 @@ int getNumOfFiles(const char *pathname) {
 
 static int              /* Callback function called by ftw() */
 dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftwb) {
-    if (strcmp("." , &pathname[ftwb->base]) == 0) {
+    //if (strcmp("." , &pathname[ftwb->base]) == 0) {
+    if (first_iteration) {
         numOfFilesInlvl[0] = getNumOfFiles(pathname);
-        printf("\033[1m\033[34m.\033[0m\n"); // print dot in bold blue
+        printf("%s\n", pathname); // print dot in bold blue
+        first_iteration = 0;
         return 0;
     }
     // if dir -> update number of files in current level
