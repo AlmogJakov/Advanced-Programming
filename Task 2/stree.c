@@ -120,22 +120,8 @@ dirTree(const char *pathname, const struct stat *sbuf, int type, struct FTW *ftw
         printf(" %14ld] ",sbuf->st_size);
     } else
         printf("        ");
-    // permissions colors: https://askubuntu.com/questions/17299/what-do-the-different-colors-mean-in-ls
-    // https://unix.stackexchange.com/questions/94498/what-causes-this-green-background-in-ls-output
-    if (S_ISDIR(sbuf->st_mode) && sbuf->st_mode & S_IWUSR 
-        && sbuf->st_mode & S_IWGRP && sbuf->st_mode & S_IWOTH) { /* Print basename */
-        printf(" \033[0m\033[34;42m%s\033[0m\n",  &pathname[ftwb->base]); // blue with green background
-    } else if (S_ISLNK(sbuf->st_mode)) {
-        printf(" \033[1m\033[36m%s\033[0m -> ",  &pathname[ftwb->base]); // bold Cyan
-        printSymLnkTarget(pathname);
-        printf("\n");
-    } else if (S_ISDIR(sbuf->st_mode)) {
-        printf(" \033[1m\033[34m%s\033[0m\n",  &pathname[ftwb->base]); // bold blue
-    } else if (sbuf->st_mode & S_IXUSR) {
-        printf(" \033[1m\033[32m%s\033[0m\n",  &pathname[ftwb->base]); // bold green
-    } else {
-        printf(" %s\n",  &pathname[ftwb->base]);     /* Print basename */
-    }
+    
+    printf(" %s\n",  &pathname[ftwb->base]);     /* Print basename */
 
     if (S_ISDIR(sbuf->st_mode) || (S_ISLNK(sbuf->st_mode) && IsDir(pathname))) direcory_counter++;
     else files_counter++;
