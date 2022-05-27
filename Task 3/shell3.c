@@ -10,13 +10,10 @@
 
 int main_pid;
 int is_quit = 0;
+char *prompt = "hello:";
+char lastCommand[1024];
 
-/* To handle with Ctrl+C input */
-void intHandler(int dummy) {
-    if (getpid() == main_pid){
-        printf("\nYou typed Control-C!\n");
-    } 
-}
+
 
 /* Command component linked list 
    (generated after seperating the whole command with pipe "|") */
@@ -26,10 +23,43 @@ typedef struct command_component {
 } command_component;
 
 
+/* To handle with Ctrl+C input */
+void intHandler(int dummy) {
+    strcpy(lastCommand, "^C");
+    if (dummy == SIGTSTP){
+        exit(0);
+    }
+    if (getpid() == main_pid){
+        printf("\nYou typed Control-C!\n");
+        // printf("%s: ", prompt);
+    } 
+}
+
+
 /* Check if typed 'quit' */
 void checkQuit(char* token){
     if (strcmp(token, "quit") == 0){
-        kill(0, SIGKILL);
+        kill(0, SIGTSTP);
+    }
+    if (strcmp(token, "^C") == 0){
+        printf("You typed Control-C!\n");
+    }
+}
+
+/* Check if typed '!!' */
+char* checkLastCommand(char* token){
+    if (strcmp(token, "!!") == 0){
+        /* Execution of the last command */
+        return lastCommand;
+    }
+    return token;
+}
+
+
+/* Check if typed 'prompt = newPrompt' */
+void checkChangePromt(char* token1, char* token2, char* token3){
+    if (strcmp(token1, "prompt") == 0 && strcmp(token2, "=") == 0){
+        prompt = token3;
     }
 }
 
@@ -42,6 +72,7 @@ void close_pipe(int fd[2]) {
 int main() {
     main_pid = getpid();
     signal(SIGINT, intHandler); // handel with Ctrl+c
+    signal(SIGTSTP, intHandler); // handel with Ctrl+Z
     char command[1024];
     char *token;
     int i;
@@ -52,9 +83,13 @@ int main() {
     command_component *root;
     int pipes_num;
     while (1) {
-        printf("hello: ");
+        printf("%s ", prompt);
+        ////////////////////////////////
         fgets(command, 1024, stdin);
         command[strlen(command) - 1] = '\0';
+        strcpy(command, checkLastCommand(command));
+        if (strlen(command) != 0)strcpy(lastCommand, command);
+ 
         /* parse command line */
         i = 0;
         pipes_num = 0;
@@ -85,6 +120,8 @@ int main() {
 
         /* Is command empty */
         if (root->command[0] == NULL) continue;
+
+        checkChangePromt(root->command[0], root->command[1], root->command[2]);
 
         /* Does command line end with & */
         if (!strcmp(cur->command[argc1 - 1], "&")) {
