@@ -18,12 +18,11 @@ void intHandler(int dummy) {
     } 
 }
 
-
 /* Command component linked list 
    (generated after seperating the whole command with pipe "|") */
-typedef struct command_s {
+typedef struct command_component {
   char *command[10];
-  struct pipe_s *next;
+  struct command_component *next;
 } command_component;
 
 
@@ -47,28 +46,23 @@ int main() {
     char *token;
     int i;
     char *outfile;
-    int fd, amper, redirect, piping, retid, status, argc1;
+    int fd, amper, redirect, status, argc1;
     int pipe_one[2];
     int pipe_two[2];
-    char *argv1[10], *argv2[10];
     command_component *root;
     int pipes_num;
     while (1) {
         printf("hello: ");
         fgets(command, 1024, stdin);
-        
         command[strlen(command) - 1] = '\0';
-        piping = 0;
         /* parse command line */
         i = 0;
         pipes_num = 0;
         token = strtok(command, " ");
-        
         root = (command_component*) malloc(sizeof(command_component));
         root->next = NULL;
         command_component *cur = root;
-        while (token != NULL)
-        {
+        while (token != NULL) {
             checkQuit(token);
             // printf("%s\n", token);
             cur->command[i] = token;
@@ -90,36 +84,36 @@ int main() {
         argc1 = i;
 
         /* Is command empty */
-        if (root->command[0] == NULL)
-            continue;
-
+        if (root->command[0] == NULL) continue;
 
         /* Does command line end with & */
-        if (!strcmp(cur->command[argc1 - 1], "&"))
-        {
+        if (!strcmp(cur->command[argc1 - 1], "&")) {
             amper = 1;
             root->command[argc1 - 1] = NULL;
-        }
-        else
-            amper = 0;
+        } else amper = 0;
 
-        if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">"))
-        {
+        /* Handle redirection */
+        if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">")) {
             redirect = 1;
             root->command[argc1 - 2] = NULL;
             outfile = root->command[argc1 - 1];
-        }
-        else
-            redirect = 0;
+        } else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], "2>")) {
+            redirect = 2;
+            root->command[argc1 - 2] = NULL;
+            outfile = root->command[argc1 - 1];
+        } else redirect = 0;
 
         /* for commands not part of the shell command language */
-
         if (fork() == 0) {
             /* redirection of IO ? */
-            if (redirect) {
-                /* redirect stdout */
+            if (redirect == 1) { /* redirect stdout */
                 fd = creat(outfile, 0660);
                 close(STDOUT_FILENO);
+                dup(fd);
+                close(fd);
+            } else if (redirect == 2) { /* redirect stderr */
+                fd = creat(outfile, 0660);
+                close(STDERR_FILENO);
                 dup(fd);
                 close(fd);
             }
@@ -176,10 +170,9 @@ int main() {
             }
         }
 
-        /* parent continues over here... */
-        /* waits for child to exit if required */
-        if (amper == 0)
-            retid = wait(&status);
+        /* Parent continues over here
+           (waits for child to exit if required) */
+        if (amper == 0) wait(&status); // retid = wait(&status);
 
         /* Free up all command components struct dynamic allocation */
         command_component *prev = root;
