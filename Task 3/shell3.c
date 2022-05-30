@@ -160,12 +160,11 @@ int main() {
                 pipe(pipe_one);
                 /* for more then 1 pipe we need another pipe for chaining */
                 if (pipes_num > 1) pipe(pipe_two);
-                /* Iterate over all command components except the last component */
+                /* For Iterating over all command components except the first & last components */
                 int pipes_iterator = pipes_num-1, pipe_switcher = 1, status = 1;
                 /* Run first component (we need to get the input from the standart input) */
                 pid_t pid = fork();
                 if (pid == 0) {
-                    //printf("waiting 1\n");
                     dup2(pipe_one[1], 1);
                     close(pipe_one[0]);
                     if (pipes_num > 1) close_pipe(pipe_two);
@@ -176,11 +175,11 @@ int main() {
                     close(pipe_one[1]);
                     cur = cur->next;
                 }
-                /* Iterate over the middle components (except first and last) */
+                /* Run [Iterate over] middle components (except first and last)
+                   while getting input from one pipe and output to other pipe */
                 while (pipes_iterator > 0) {
                     pid = fork();
                     if (pid == 0) {
-                        //printf("waiting 2\n");
                         if (pipe_switcher % 2 == 1) {
                             dup2(pipe_one[0], 0);
                             dup2(pipe_two[1], 1);
@@ -194,12 +193,10 @@ int main() {
                         waitpid(pid, &status, 0);
                         if (pipe_switcher % 2 == 1) {
                             close(pipe_two[1]);
-                            //close_pipe(pipe_one);
                             close(pipe_one[0]);
                             pipe(pipe_one);
                         } else {
                             close(pipe_one[1]);
-                            //close_pipe(pipe_two);
                             close(pipe_two[0]);
                             pipe(pipe_two);
                         }
@@ -211,7 +208,6 @@ int main() {
                 /* Run last component (we need to output to the standart output) */
                 pid = fork();
                 if (pid == 0) {
-                    //printf("waiting 3\n");
                     if (pipe_switcher % 2 == 0) dup2(pipe_two[0], 0);
                     else dup2(pipe_one[0], 0);
                     execvp(cur->command[0], cur->command);
