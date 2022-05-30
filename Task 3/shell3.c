@@ -251,8 +251,13 @@ int main(){
             amper = 0;
 
         /* Handle redirection */
-        if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">")){
+        if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">" )){
             redirect = 1;
+            root->command[argc1 - 2] = NULL;
+            outfile = root->command[argc1 - 1];
+        }
+        else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">>" )){
+            redirect = 3;
             root->command[argc1 - 2] = NULL;
             outfile = root->command[argc1 - 1];
         }
@@ -270,6 +275,13 @@ int main(){
             if (redirect == 1)
             { /* redirect stdout */
                 fd = creat(outfile, 0660);
+                close(STDOUT_FILENO);
+                dup(fd);
+                close(fd);
+            }
+            if (redirect == 3)
+            { /* redirect stdout */
+                fd = open(outfile, O_CREAT | O_WRONLY | O_APPEND, 0660);
                 close(STDOUT_FILENO);
                 dup(fd);
                 close(fd);
