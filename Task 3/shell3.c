@@ -219,7 +219,15 @@ int main(){
             num--;
             iter = iter->next;
         }
-
+        if (strcmp(root->command[0],"read") == 0) {
+            char *key = root->command[1];
+            char value[20];
+            fgets(value, 20, stdin);
+            value[strlen(value)-1] = '\0'; // remove new line ('\n')
+            char *val = value;
+            key_value_add(key, val);
+            continue;
+        }
 
 
 
