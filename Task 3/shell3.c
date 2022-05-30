@@ -14,6 +14,59 @@ char *prompt = "hello:";
 char lastCommand[1024];
 const int es = 0;
 
+
+typedef struct key_value {
+   char* key;
+   char* value;
+   struct key_value *next;
+} key_value;
+
+key_value *key_value_root;
+
+void key_value_add(char* key, char* value) {
+    key_value *iter = key_value_root;
+    while (iter->next != NULL) {
+        iter = iter->next;
+        if (strcmp(iter->key,key) == 0) {
+            char* new_val = malloc(strlen(value) + 1); 
+            strcpy(new_val, value);
+            iter->value = new_val;
+            //printf("replaced key: %s\n", key);
+            //printf("replaced value: %s\n", value);
+            return;
+        }
+    }
+    key_value *next = (key_value*) malloc(sizeof(key_value));
+    char* new_key = malloc(strlen(key) + 1); 
+    strcpy(new_key, key);
+    next->key = new_key;
+    char* new_val = malloc(strlen(value) + 1); 
+    strcpy(new_val, value);
+    next->value = new_val;
+    next->next = NULL;
+    iter->next = next;
+    //printf("added key: %s\n", key);
+    //printf("added value: %s\n", value);
+    return;
+}
+
+char* value_get(char* key) {
+    key_value *iter = key_value_root;
+    while (iter->next != NULL) {
+        iter = iter->next;
+        //printf("search %s\n", key);
+        //printf("res %s\n", iter->key);
+        //printf("res %s\n", iter->value);
+        if (strcmp(iter->key,key) == 0) {
+            return iter->value;
+        }
+    }
+    return NULL;
+}
+
+
+
+
 /* Command component linked list
    (generated after seperating the whole command with pipe "|") */
 typedef struct command_component
@@ -110,6 +163,8 @@ int main(){
     int pipe_two[2];
     command_component *root;
     int pipes_num;
+    key_value_root = (key_value*) malloc(sizeof(key_value));
+    key_value_root->next = NULL;
     while (1){
         printf("%s ", prompt);
         ////////////////////////////////
@@ -146,6 +201,47 @@ int main(){
         }
         cur->command[i] = NULL;
         argc1 = i;
+
+
+
+        /* Handle named variables */
+        command_component *iter = root;
+        int num = pipes_num + 1;
+        while (num > 0) {
+            //printf("%s\n", iter->command[0]);
+            if (iter->command[0][0] == '$' && strcmp(iter->command[1],"=") == 0) {
+                //printf("what\n");
+                key_value_add(iter->command[0]+1, iter->command[2]);
+            }
+            num--;
+            iter = iter->next;
+        }
+        iter = root;
+        num = pipes_num + 1;
+        while (num > 0) {
+            if (!(iter->command[0][0] == '$' && strcmp(iter->command[1],"=") == 0)) {
+                //printf("%s\n", iter->command[0]);
+                //printf("%d\n", 1000000000);
+                for (int i = 0; i < 10; i++) {
+                    //printf("%d\n", i);
+                    if (iter->command[i] != NULL && iter->command[i][0] == '$') {
+                        //printf("searching %s\n", "echo");
+                        //printf("searching %s\n", iter->command[i]+1);
+                        char *val = value_get(iter->command[i]+1);
+                        //iter->command[i] = val;
+                        //if (val!=NULL) printf("%s\n", val);
+                        if (val!=NULL) iter->command[i] = val;
+                    }
+                }
+            }
+            num--;
+            iter = iter->next;
+        }
+        //char* test = value_get("name");
+        //if (test!=NULL) printf("%s\n", test);
+
+
+
 
         /* Is command empty */
         if (root->command[0] == NULL)
