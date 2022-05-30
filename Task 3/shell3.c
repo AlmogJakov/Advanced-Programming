@@ -196,11 +196,11 @@ int main(){
         argc1 = i;
 
 
-
         /* Handle named variables */
         command_component *iter = root;
         int num = pipes_num + 1;
         while (num > 0) {
+            if (iter->command[0] == NULL) break;
             if (iter->command[0][0] == '$' && strcmp(iter->command[1],"=") == 0) {
                 key_value_add(iter->command[0]+1, iter->command[2]);
             }
@@ -210,6 +210,7 @@ int main(){
         iter = root;
         num = pipes_num + 1;
         while (num > 0) {
+            if (iter->command[0] == NULL) break;
             if (!(iter->command[0][0] == '$' && strcmp(iter->command[1],"=") == 0)) {
                 for (int i = 0; i < 10; i++) {
                     if (iter->command[i] != NULL && iter->command[i][0] == '$') {
@@ -219,7 +220,7 @@ int main(){
             num--;
             iter = iter->next;
         }
-        if (strcmp(root->command[0],"read") == 0) {
+        if (iter->command[0] != NULL && strcmp(root->command[0],"read") == 0) {
             char *key = root->command[1];
             char value[20];
             fgets(value, 20, stdin);
