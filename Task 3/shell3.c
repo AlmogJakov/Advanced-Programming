@@ -220,7 +220,7 @@ int main(){
             num--;
             iter = iter->next;
         }
-        if (iter->command[0] != NULL && strcmp(root->command[0],"read") == 0) {
+        if (root->command[0] != NULL && root->command[1] != NULL && strcmp(root->command[0],"read") == 0) {
             char *key = root->command[1];
             char value[20];
             fgets(value, 20, stdin);
