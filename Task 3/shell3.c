@@ -82,17 +82,13 @@ void checkQuit(char *token)
 
 {
 
-    if (strcmp(token, "quit") == 0)
-
-    {
+    if (strcmp(token, "quit") == 0){
 
         kill(0, SIGTSTP);
 
     }
 
-    if (strcmp(token, "^C") == 0)
-
-    {
+    if (strcmp(token, "^C") == 0){
 
         printf("You typed Control-C!\n");
 
@@ -108,9 +104,7 @@ char *checkLastCommand(char *token)
 
 {
 
-    if (strcmp(token, "!!") == 0)
-
-    {
+    if (strcmp(token, "!!") == 0){
 
         /* Execution of the last command */
 
@@ -126,13 +120,9 @@ char *checkLastCommand(char *token)
 
 /* Check if typed 'prompt = newPrompt' */
 
-void checkChangePromt(char *token1, char *token2, char *token3)
+void checkChangePromt(char *token1, char *token2, char *token3){
 
-{
-
-    if (strcmp(token1, "prompt") == 0 && strcmp(token2, "=") == 0)
-
-    {
+    if (strcmp(token1, "prompt") == 0 && strcmp(token2, "=") == 0){
 
         prompt = token3;
 
@@ -170,11 +160,33 @@ char *checkExitStatus(char *token1, char *token2, int status) {
 
 
 
+/* Check if typed 'cd' */
+
+int checkCdCommand(char *token1, char *token2) {
+
+    if (!strcmp(token1, "cd")) {
+
+        if (chdir(token2)){
+
+            printf("cd: %s: No such file or directory\n", token2);
+
+        }
+
+        return 1;
+
+    }
+
+    return 0;
+
+}
+
+
+
+
+
 /* Close both sides of fd pipe */
 
-void close_pipe(int fd[2])
-
-{
+void close_pipe(int fd[2]){
 
     close(fd[0]);
 
@@ -184,9 +196,7 @@ void close_pipe(int fd[2])
 
 
 
-int main()
-
-{
+int main(){
 
     main_pid = getpid();
 
@@ -212,9 +222,7 @@ int main()
 
     int pipes_num;
 
-    while (1)
-
-    {
+    while (1){
 
         printf("%s ", prompt);
 
@@ -246,9 +254,7 @@ int main()
 
         command_component *cur = root;
 
-        while (token != NULL)
-
-        {
+        while (token != NULL){
 
             checkQuit(token);
 
@@ -260,9 +266,7 @@ int main()
 
             i++;
 
-            if (token && !strcmp(token, "|"))
-
-            {
+            if (token && !strcmp(token, "|")){
 
                 token = strtok(NULL, " "); // skip empty space after "|"
 
@@ -304,15 +308,17 @@ int main()
 
         root->command[1] = checkExitStatus(root->command[0], root->command[1], status);
 
-        // checkCdCommand(root->command[0], root->command[1]);
+        if (checkCdCommand(root->command[0], root->command[1])){
+
+            continue;
+
+        }
 
 
 
         /* Does command line end with & */
 
-        if (!strcmp(cur->command[argc1 - 1], "&"))
-
-        {
+        if (!strcmp(cur->command[argc1 - 1], "&")){
 
             amper = 1;
 
@@ -328,9 +334,7 @@ int main()
 
         /* Handle redirection */
 
-        if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">"))
-
-        {
+        if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">")){
 
             redirect = 1;
 
@@ -340,9 +344,7 @@ int main()
 
         }
 
-        else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], "2>"))
-
-        {
+        else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], "2>")){
 
             redirect = 2;
 
@@ -360,9 +362,7 @@ int main()
 
         /* for commands not part of the shell command language */
 
-        if (fork() == 0)
-
-        {
+        if (fork() == 0){
 
             /* redirection of IO ? */
 
@@ -394,9 +394,7 @@ int main()
 
             }
 
-            if (pipes_num > 0)
-
-            {
+            if (pipes_num > 0){
 
                 cur = root;
 
@@ -418,9 +416,7 @@ int main()
 
                 pid_t pid = fork();
 
-                if (pid == 0)
-
-                {
+                if (pid == 0){
 
                     dup2(pipe_one[1], 1);
 
@@ -434,11 +430,7 @@ int main()
 
                     exit(0);
 
-                }
-
-                else
-
-                {
+                } else {
 
                     waitpid(pid, &status, 0);
 
@@ -452,29 +444,19 @@ int main()
 
                    while getting input from one pipe and output to other pipe */
 
-                while (pipes_iterator > 0)
-
-                {
+                while (pipes_iterator > 0){
 
                     pid = fork();
 
-                    if (pid == 0)
+                    if (pid == 0){
 
-                    {
-
-                        if (pipe_switcher % 2 == 1)
-
-                        {
+                        if (pipe_switcher % 2 == 1){
 
                             dup2(pipe_one[0], 0);
 
                             dup2(pipe_two[1], 1);
 
-                        }
-
-                        else
-
-                        {
+                        } else {
 
                             dup2(pipe_two[0], 0);
 
@@ -486,17 +468,11 @@ int main()
 
                         exit(0);
 
-                    }
-
-                    else
-
-                    {
+                    } else {
 
                         waitpid(pid, &status, 0);
 
-                        if (pipe_switcher % 2 == 1)
-
-                        {
+                        if (pipe_switcher % 2 == 1) {
 
                             close(pipe_two[1]);
 
@@ -504,11 +480,7 @@ int main()
 
                             pipe(pipe_one);
 
-                        }
-
-                        else
-
-                        {
+                        } else {
 
                             close(pipe_one[1]);
 
@@ -532,9 +504,7 @@ int main()
 
                 pid = fork();
 
-                if (pid == 0)
-
-                {
+                if (pid == 0) {
 
                     if (pipe_switcher % 2 == 0)
 
@@ -548,11 +518,7 @@ int main()
 
                     exit(0);
 
-                }
-
-                else
-
-                {
+                } else {
 
                     waitpid(pid, &status, 0);
 
@@ -564,11 +530,7 @@ int main()
 
                 }
 
-            }
-
-            else
-
-            {
+            } else {
 
                 execvp(root->command[0], root->command);
 
@@ -596,9 +558,7 @@ int main()
 
         cur = root;
 
-        for (int i = 0; i <= pipes_num; i++)
-
-        {
+        for (int i = 0; i <= pipes_num; i++) {
 
             prev = cur;
 
