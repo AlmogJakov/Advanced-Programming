@@ -158,50 +158,69 @@ int main() {
                 cur = root;
                 /* Create pipe (0 = pipe output. 1 = pipe input) */
                 pipe(pipe_one);
-                /* for more then 1 pipe we neet another pipe for chaining */
+                /* for more then 1 pipe we need another pipe for chaining */
                 if (pipes_num > 1) pipe(pipe_two);
-                int pipes_iterator = pipes_num, pipe_switcher = 0;
                 /* Iterate over all command components except the last component */
-                while (pipes_iterator > 0) {
-                    /* current pipe command line */
-                    if (fork() == 0) {
-                        /* If the current pipe is not the first we neet to get
-                           the input from the output of the other pipe */
-                        if (pipes_iterator < pipes_num) {
-                            close(STDIN_FILENO);
-                            if (pipe_switcher % 2 == 0) {
-                                dup(pipe_two[0]);
-                                close_pipe(pipe_two);
-                            } else {
-                                dup(pipe_one[0]);
-                                close_pipe(pipe_one);}
-                        }
-                        /* Always close the child stdout (standart output)
-                           (only the parent print the final result to stdout) */
-                        close(STDOUT_FILENO); 
-                        if (pipe_switcher % 2 == 0) {
-                            dup(pipe_one[1]); // keep pipe input as the new output
-                            close_pipe(pipe_one); 
-                        } else {
-                            dup(pipe_two[1]); // keep pipe input as the new output
-                            close_pipe(pipe_two); }
-                        /* stdout now goes to the other pipe */
-                        execvp(cur->command[0], cur->command);
-                    }
-                    pipe_switcher++;
+                int pipes_iterator = pipes_num-1, pipe_switcher = 1, status = 1;
+                /* Run first component (we need to get the input from the standart input) */
+                pid_t pid = fork();
+                if (pid == 0) {
+                    //printf("waiting 1\n");
+                    dup2(pipe_one[1], 1);
+                    close(pipe_one[0]);
+                    if (pipes_num > 1) close_pipe(pipe_two);
+                    execvp(cur->command[0], cur->command);
+                    exit(0);
+                } else {
+                    waitpid(pid, &status, 0);
+                    close(pipe_one[1]);
                     cur = cur->next;
-                    pipes_iterator--;
                 }
-                /* Parent running last command component of the command line
-                   (while the input is the output of the pipe that contains 
-                   the result of all [command line] prev components) */
-                close(STDIN_FILENO);
-                if (pipe_switcher % 2 == 0) dup(pipe_two[0]);
-                else dup(pipe_one[0]);
-                close_pipe(pipe_one);
-                if (pipes_num > 1) close_pipe(pipe_two);
-                /* standard input now comes from pipe */
-                execvp(cur->command[0], cur->command);
+                /* Iterate over the middle components (except first and last) */
+                while (pipes_iterator > 0) {
+                    pid = fork();
+                    if (pid == 0) {
+                        //printf("waiting 2\n");
+                        if (pipe_switcher % 2 == 1) {
+                            dup2(pipe_one[0], 0);
+                            dup2(pipe_two[1], 1);
+                        } else {
+                            dup2(pipe_two[0], 0);
+                            dup2(pipe_one[1], 1);
+                        }
+                        execvp(cur->command[0], cur->command);
+                        exit(0);  
+                    } else {
+                        waitpid(pid, &status, 0);
+                        if (pipe_switcher % 2 == 1) {
+                            close(pipe_two[1]);
+                            //close_pipe(pipe_one);
+                            close(pipe_one[0]);
+                            pipe(pipe_one);
+                        } else {
+                            close(pipe_one[1]);
+                            //close_pipe(pipe_two);
+                            close(pipe_two[0]);
+                            pipe(pipe_two);
+                        }
+                        cur = cur->next;
+                        pipe_switcher++;
+                        pipes_iterator--;
+                    }
+                }
+                /* Run last component (we need to output to the standart output) */
+                pid = fork();
+                if (pid == 0) {
+                    //printf("waiting 3\n");
+                    if (pipe_switcher % 2 == 0) dup2(pipe_two[0], 0);
+                    else dup2(pipe_one[0], 0);
+                    execvp(cur->command[0], cur->command);
+                    exit(0);
+                } else {
+                    waitpid(pid, &status, 0);
+                    close_pipe(pipe_one);
+                    if (pipes_num > 1) close_pipe(pipe_two);
+                }
             } else {
                 execvp(root->command[0], root->command);
             }
