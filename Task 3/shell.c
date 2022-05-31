@@ -204,6 +204,7 @@ int main(){
     char command[1024];
     char *token;
     int i;
+    char *infile;
     char *outfile;
     int fd, amper, redirect, status, argc1;
     int pipe_one[2];
@@ -325,6 +326,11 @@ int main(){
             root->command[argc1 - 2] = NULL;
             outfile = root->command[argc1 - 1];
         }
+        else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], "<")){
+            redirect = 4;
+            root->command[argc1 - 2] = NULL;
+            infile = root->command[argc1 - 1];
+        }
         else
             redirect = 0;
 
@@ -349,6 +355,13 @@ int main(){
             { /* redirect stderr */
                 fd = creat(outfile, 0660);
                 close(STDERR_FILENO);
+                dup(fd);
+                close(fd);
+            }
+            else if (redirect == 4)
+            { /* redirect stderr */
+                fd = open(infile, O_RDONLY | O_CREAT); 
+                close(STDIN_FILENO);
                 dup(fd);
                 close(fd);
             }
