@@ -153,14 +153,19 @@ void checkChangePromt(char *token1, char *token2, char *token3) {
 
 
 /* Check if typed 'echo $?' */
-char *checkExitStatus(char *token1, char *token2, int status) {
-    if (strcmp(token1, "echo") == 0 && strcmp(token2, "$?") == 0) {
-        if (WIFEXITED(status)) {
-            es = WEXITSTATUS(status);
+void checkExitStatus(command_component *list, int status) {
+    while (list != NULL){
+        for (int i = 0; i < 9; i++){
+            if (list->command[i+1] == NULL){break;}
+            if (strcmp(list->command[i], "echo") == 0 && strcmp(list->command[i+1], "$?") == 0) {
+                if (WIFEXITED(status)) {
+                    es = WEXITSTATUS(status);
+                }
+                sprintf(list->command[i+1], "%d", es);
+            }
         }
-        sprintf(token2, "%d", es);
+        list = list->next;
     }
-    return token2;
 }
 
 /* Check if typed 'cd' */
@@ -185,7 +190,9 @@ void close_pipe(int fd[2]){
 int main(){
     char *original_prompt = "hello:";
     /* Share the prompt name since we want to update the parent after the child changing the name */
-    prompt = (char*)mmap(NULL, sizeof(char)*100, PROT_READ|PROT_WRITE , MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    prompt = (char*)mmap(NULL, sizeof(char)*100, 0x1|0x2 , 0x01 | 0x20, -1, 0);
+    /* same as:
+        prompt = (char*)mmap(NULL, sizeof(char)*100, PROT_READ|PROT_WRITE , MAP_SHARED | MAP_ANONYMOUS, -1, 0) */
     strcpy(prompt, original_prompt);
     main_pid = getpid();
     signal(SIGINT, intHandler);  // handel with Ctrl+c
@@ -237,6 +244,11 @@ int main(){
         cur->command[i] = NULL;
         argc1 = i;
 
+        checkChangePromt(root->command[0], root->command[1], root->command[2]);
+        checkExitStatus(root, status);
+        if (checkCdCommand(root->command[0], root->command[1])){
+            continue;
+        }
 
         /* Handle named variables */
         command_component *iter = root;
@@ -284,12 +296,6 @@ int main(){
         /* Is command empty */
         if (root->command[0] == NULL)
             continue;
-
-        checkChangePromt(root->command[0], root->command[1], root->command[2]);
-        root->command[1] = checkExitStatus(root->command[0], root->command[1], status);
-        if (checkCdCommand(root->command[0], root->command[1])){
-            continue;
-        }
 
         /* Does command line end with & */
         if (!strcmp(cur->command[argc1 - 1], "&")){
