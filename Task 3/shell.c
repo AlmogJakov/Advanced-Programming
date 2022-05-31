@@ -7,10 +7,11 @@
 #include "unistd.h"
 #include <string.h>
 #include <signal.h>
+#include <sys/mman.h>
 
 int main_pid;
 int is_quit = 0;
-char *prompt = "hello:";
+char *prompt;
 char lastCommand[1024];
 int es = 0;
 
@@ -114,8 +115,9 @@ void intHandler(int dummy) {
     }
     if (getpid() == main_pid) {
         printf("\nYou typed Control-C!\n");
-        char message[8] = "hello: ";
-        write(STDIN_FILENO, message, 8);
+        char message[2] = " ";
+        write(STDIN_FILENO, prompt, strlen(prompt)+1);
+        write(STDIN_FILENO, message, strlen(message)+1);
     }
 }
 
@@ -141,9 +143,11 @@ char *checkLastCommand(char *token)
 }
 
 /* Check if typed 'prompt = newPrompt' */
-void checkChangePromt(char *token1, char *token2, char *token3){
-    if (strcmp(token1, "prompt") == 0 && strcmp(token2, "=") == 0){
-        prompt = token3;
+void checkChangePromt(char *token1, char *token2, char *token3) {
+    if (strcmp(token1, "prompt") == 0 && strcmp(token2, "=") == 0) {
+        //free(prompt);
+        //prompt = malloc(strlen(token3) + 1);
+        strcpy(prompt, token3);
     }
 }
 
@@ -179,6 +183,10 @@ void close_pipe(int fd[2]){
 }
 
 int main(){
+    char *original_prompt = "hello:";
+    /* Share the prompt name since we want to update the parent after the child changing the name */
+    prompt = (char*)mmap(NULL, sizeof(char)*100, PROT_READ|PROT_WRITE , MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    strcpy(prompt, original_prompt);
     main_pid = getpid();
     signal(SIGINT, intHandler);  // handel with Ctrl+c
     signal(SIGTSTP, intHandler); // handel with Ctrl+Z
@@ -193,7 +201,7 @@ int main(){
     int pipes_num;
     key_value_root = (key_value*) malloc(sizeof(key_value));
     key_value_root->next = NULL;
-    while (1){
+    while (1) {
         printf("%s ", prompt);
         fgets(command, 1024, stdin);
         command[strlen(command) - 1] = '\0';
@@ -311,7 +319,7 @@ int main(){
             redirect = 0;
 
         /* for commands not part of the shell command language */
-        if (fork() == 0){
+        if (fork() == 0) {
             /* redirection of IO ? */
             if (redirect == 1)
             { /* redirect stdout */
