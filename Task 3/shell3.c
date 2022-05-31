@@ -258,6 +258,7 @@ int main(){
                     if (iter->command[i] != NULL && iter->command[i][0] == '$') {
                         char *val = value_get(iter->command[i]+1);
                         if (val!=NULL) iter->command[i] = val;
+                        else iter->command[i] = ""; // if the key doesnt found
                     }}}
             num--;
             iter = iter->next;
@@ -269,7 +270,7 @@ int main(){
             value[strlen(value)-1] = '\0'; // remove new line ('\n')
             char *val = value;
             key_value_add(key, val);
-            continue;
+            //continue;
         }
 
         /* Is command empty */
@@ -356,7 +357,7 @@ int main(){
                     close(pipe_one[1]);
                     cur = cur->next;
                 }
-                /* Run [Iterate over] middle components (except first and last)
+                /* Run [Iterate over] middle components (except first read name | echo heyand last)
                    while getting input from one pipe and output to other pipe */
                 while (pipes_iterator > 0){
                     pid = fork();
