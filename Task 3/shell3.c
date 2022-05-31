@@ -57,15 +57,54 @@ char* value_get(char* key) {
     return NULL;
 }
 
-
-
-
 /* Command component linked list
    (generated after seperating the whole command with pipe "|") */
 typedef struct command_component {
     char *command[10];
     struct command_component *next;
 } command_component;
+
+// https://stackoverflow.com/questions/779875/what-function-is-to-replace-a-substring-from-a-string-in-c
+char *str_replace(char *orig, char *rep, char *with) {
+    char *result; // the return string
+    char *ins;    // the next insert point
+    char *tmp;    // varies
+    int len_rep;  // length of rep (the string to remove)
+    int len_with; // length of with (the string to replace rep with)
+    int len_front; // distance between rep and end of last rep
+    int count;    // number of replacements
+
+    // sanity checks and initialization
+    if (!orig || !rep)
+        return NULL;
+    len_rep = strlen(rep);
+    if (len_rep == 0)
+        return NULL; // empty rep causes infinite loop during count
+    if (!with)
+        with = "";
+    len_with = strlen(with);
+
+    // count the number of replacements needed
+    ins = orig;
+    for (count = 0; (tmp = strstr(ins, rep)); ++count) {
+        ins = tmp + len_rep;
+    }
+
+    tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+    if (!result)
+        return NULL;
+
+    while (count--) {
+        ins = strstr(orig, rep);
+        len_front = ins - orig;
+        tmp = strncpy(tmp, orig, len_front) + len_front;
+        tmp = strcpy(tmp, with) + len_with;
+        orig += len_front + len_rep; // move to next "end of rep"
+    }
+    strcpy(tmp, orig);
+    return result;
+}
 
 /* To handle with Ctrl+C input */
 void intHandler(int dummy) {
@@ -75,7 +114,8 @@ void intHandler(int dummy) {
     }
     if (getpid() == main_pid) {
         printf("\nYou typed Control-C!\n");
-        // printf("%s: ", prompt);
+        char message[8] = "hello: ";
+        write(STDIN_FILENO, message, 8);
     }
 }
 
@@ -157,6 +197,10 @@ int main(){
         printf("%s ", prompt);
         fgets(command, 1024, stdin);
         command[strlen(command) - 1] = '\0';
+        /* Update the lest command */
+        strcpy(command, str_replace(command, "!!", lastCommand));
+        if (strlen(command) != 0)
+            strcpy(lastCommand, command);
 
         i = 0;
         pipes_num = 0;
@@ -165,9 +209,7 @@ int main(){
         root->next = NULL;
         command_component *cur = root;
         while (token != NULL){
-            strcpy(token, checkLastCommand(token));
             checkQuit(token);
-            // printf("%s\n", token);
             cur->command[i] = token;
             token = strtok(NULL, " ");
             i++;
@@ -183,11 +225,6 @@ int main(){
                 continue;
             }
         }
-        // printf("%s\n", addToLastCommand);
-
-        /* Update the lest command */
-        if (strlen(command) != 0)
-            strcpy(lastCommand, command);
 
         cur->command[i] = NULL;
         argc1 = i;
@@ -197,7 +234,11 @@ int main(){
         command_component *iter = root;
         int num = pipes_num + 1;
         while (num > 0) {
-            if (iter->command[0] == NULL) break;
+            if (iter->command[0] == NULL){
+                num--;
+                iter = iter->next;
+                continue;
+            }
             if (iter->command[0][0] == '$' && strcmp(iter->command[1],"=") == 0) {
                 key_value_add(iter->command[0]+1, iter->command[2]);
             }
@@ -207,7 +248,11 @@ int main(){
         iter = root;
         num = pipes_num + 1;
         while (num > 0) {
-            if (iter->command[0] == NULL) break;
+            if (iter->command[0] == NULL) {
+                num--;
+                iter = iter->next;
+                continue;
+            }
             if (!(iter->command[0][0] == '$' && strcmp(iter->command[1],"=") == 0)) {
                 for (int i = 0; i < 10; i++) {
                     if (iter->command[i] != NULL && iter->command[i][0] == '$') {
