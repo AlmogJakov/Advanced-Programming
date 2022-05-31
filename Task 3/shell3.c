@@ -12,7 +12,7 @@ int main_pid;
 int is_quit = 0;
 char *prompt = "hello:";
 char lastCommand[1024];
-const int es = 0;
+int es = 0;
 
 
 typedef struct key_value {
@@ -62,22 +62,18 @@ char* value_get(char* key) {
 
 /* Command component linked list
    (generated after seperating the whole command with pipe "|") */
-typedef struct command_component
-{
+typedef struct command_component {
     char *command[10];
     struct command_component *next;
 } command_component;
 
 /* To handle with Ctrl+C input */
-void intHandler(int dummy)
-{
+void intHandler(int dummy) {
     strcpy(lastCommand, "^C");
-    if (dummy == SIGTSTP)
-    {
+    if (dummy == SIGTSTP) {
         exit(0);
     }
-    if (getpid() == main_pid)
-    {
+    if (getpid() == main_pid) {
         printf("\nYou typed Control-C!\n");
         // printf("%s: ", prompt);
     }
@@ -116,11 +112,9 @@ void checkChangePromt(char *token1, char *token2, char *token3){
 char *checkExitStatus(char *token1, char *token2, int status) {
     if (strcmp(token1, "echo") == 0 && strcmp(token2, "$?") == 0) {
         if (WIFEXITED(status)) {
-            const int es = WEXITSTATUS(status);
-            sprintf(token2, "%d", es);
-        } else {
-            sprintf(token2, "%d", 0);
+            es = WEXITSTATUS(status);
         }
+        sprintf(token2, "%d", es);
     }
     return token2;
 }
@@ -130,6 +124,7 @@ int checkCdCommand(char *token1, char *token2) {
     if (!strcmp(token1, "cd")) {
         if (chdir(token2)){
             printf("cd: %s: No such file or directory\n", token2);
+            es = 1;
         }
         return 1;
     }
@@ -160,14 +155,9 @@ int main(){
     key_value_root->next = NULL;
     while (1){
         printf("%s ", prompt);
-        ////////////////////////////////
         fgets(command, 1024, stdin);
         command[strlen(command) - 1] = '\0';
-        strcpy(command, checkLastCommand(command));
-        if (strlen(command) != 0)
-            strcpy(lastCommand, command);
 
-        /* parse command line */
         i = 0;
         pipes_num = 0;
         token = strtok(command, " ");
@@ -175,6 +165,7 @@ int main(){
         root->next = NULL;
         command_component *cur = root;
         while (token != NULL){
+            strcpy(token, checkLastCommand(token));
             checkQuit(token);
             // printf("%s\n", token);
             cur->command[i] = token;
@@ -192,6 +183,12 @@ int main(){
                 continue;
             }
         }
+        // printf("%s\n", addToLastCommand);
+
+        /* Update the lest command */
+        if (strlen(command) != 0)
+            strcpy(lastCommand, command);
+
         cur->command[i] = NULL;
         argc1 = i;
 
@@ -229,8 +226,6 @@ int main(){
             key_value_add(key, val);
             continue;
         }
-
-
 
         /* Is command empty */
         if (root->command[0] == NULL)
