@@ -14,7 +14,7 @@ int is_quit = 0;
 char *prompt;
 char lastCommand[1024];
 int es = 0;
-
+int errInCd = 0;
 
 typedef struct key_value {
    char* key;
@@ -158,8 +158,12 @@ void checkExitStatus(command_component *list, int status) {
         for (int i = 0; i < 9; i++){
             if (list->command[i+1] == NULL){break;}
             if (strcmp(list->command[i], "echo") == 0 && strcmp(list->command[i+1], "$?") == 0) {
-                if (WIFEXITED(status)) {
+                if (!errInCd && WIFEXITED(status)) {
                     es = WEXITSTATUS(status);
+                }
+                else if (errInCd) {
+                    es = 1;
+                    errInCd = 0;
                 }
                 sprintf(list->command[i+1], "%d", es);
             }
@@ -173,7 +177,7 @@ int checkCdCommand(char *token1, char *token2) {
     if (!strcmp(token1, "cd")) {
         if (chdir(token2)){
             printf("cd: %s: No such file or directory\n", token2);
-            es = 1;
+            errInCd = 1;
         }
         return 1;
     }
