@@ -194,7 +194,7 @@ void close_pipe(int fd[2]){
 int main(){
     char *original_prompt = "hello:";
     /* Share the prompt name since we want to update the parent after the child changing the name */
-    prompt = (char*)mmap(NULL, sizeof(char)*100, 0x1|0x2 , 0x01 | 0x20, -1, 0);
+    prompt = (char*)mmap(NULL, sizeof(char)*1000, 0x1|0x2 , 0x01 | 0x20, -1, 0);
     /* same as:
         prompt = (char*)mmap(NULL, sizeof(char)*100, PROT_READ|PROT_WRITE , MAP_SHARED | MAP_ANONYMOUS, -1, 0) */
     strcpy(prompt, original_prompt);
@@ -436,6 +436,8 @@ int main(){
             } else {
                 execvp(root->command[0], root->command);
             }
+            /* In case of unknown command let the child exit */
+            exit(0);
         }
 
         /* Parent continues over here
