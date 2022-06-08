@@ -132,19 +132,10 @@ void checkQuit(char *token)
     }
 }
 
-/* Check if typed '!!' */
-char *checkLastCommand(char *token)
-{
-    if (strcmp(token, "!!") == 0){
-        /* Execution of the last command */
-        return lastCommand;
-    }
-    return token;
-}
-
 /* Check if typed 'prompt = newPrompt' */
 void checkChangePromt(char *token1, char *token2, char *token3) {
-    if (strcmp(token1, "prompt") == 0 && strcmp(token2, "=") == 0) {
+    if (token1 != NULL && token2 != NULL && token3 != NULL && strcmp(token1, "prompt") == 0 
+            && strcmp(token2, "=") == 0) {
         //free(prompt);
         //prompt = malloc(strlen(token3) + 1);
         strcpy(prompt, token3);
@@ -174,7 +165,7 @@ void checkExitStatus(command_component *list, int status) {
 
 /* Check if typed 'cd' */
 int checkCdCommand(char *token1, char *token2) {
-    if (!strcmp(token1, "cd")) {
+    if (token2 != NULL && !strcmp(token1, "cd")) {
         if (chdir(token2)){
             printf("cd: %s: No such file or directory\n", token2);
             errInCd = 1;
@@ -191,6 +182,8 @@ void close_pipe(int fd[2]){
     close(fd[1]);
 }
 
+int fd = -2;
+
 int main(){
     char *original_prompt = "hello:";
     /* Share the prompt name since we want to update the parent after the child changing the name */
@@ -206,7 +199,7 @@ int main(){
     int i;
     char *infile;
     char *outfile;
-    int fd, amper, redirect, status, argc1;
+    int amper, redirect, status, argc1;
     int pipe_one[2];
     int pipe_two[2];
     command_component *root;
@@ -245,16 +238,16 @@ int main(){
                 continue;
             }
         }
-
+        
         cur->command[i] = NULL;
         argc1 = i;
-
+        
         checkChangePromt(root->command[0], root->command[1], root->command[2]);
         checkExitStatus(root, status);
         if (checkCdCommand(root->command[0], root->command[1])){
             continue;
         }
-
+        
         /* Handle named variables */
         command_component *iter = root;
         int num = pipes_num + 1;
@@ -306,30 +299,33 @@ int main(){
         if (!strcmp(cur->command[argc1 - 1], "&")){
             amper = 1;
             root->command[argc1 - 1] = NULL;
-        }
-        else
+        } else
             amper = 0;
 
+        while(cur->next!=NULL) cur = cur->next;
+        //printf("%s\n", cur->command[argc1 - 2]);
+
         /* Handle redirection */
+        redirect = 0;
         if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">" )){
             redirect = 1;
-            root->command[argc1 - 2] = NULL;
-            outfile = root->command[argc1 - 1];
+            cur->command[argc1 - 2] = NULL;
+            outfile = cur->command[argc1 - 1];
         }
         else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], ">>" )){
             redirect = 3;
-            root->command[argc1 - 2] = NULL;
-            outfile = root->command[argc1 - 1];
+            cur->command[argc1 - 2] = NULL;
+            outfile = cur->command[argc1 - 1];
         }
         else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], "2>")){
             redirect = 2;
-            root->command[argc1 - 2] = NULL;
-            outfile = root->command[argc1 - 1];
+            cur->command[argc1 - 2] = NULL;
+            outfile = cur->command[argc1 - 1];
         }
         else if (argc1 > 1 && !strcmp(cur->command[argc1 - 2], "<")){
             redirect = 4;
-            root->command[argc1 - 2] = NULL;
-            infile = root->command[argc1 - 1];
+            cur->command[argc1 - 2] = NULL;
+            infile = cur->command[argc1 - 1];
         }
         else
             redirect = 0;
@@ -340,30 +336,38 @@ int main(){
             if (redirect == 1)
             { /* redirect stdout */
                 fd = creat(outfile, 0660);
+                if (pipes_num == 0) {
                 close(STDOUT_FILENO);
                 dup(fd);
                 close(fd);
+                }
             }
             if (redirect == 3)
             { /* redirect stdout */
                 fd = open(outfile, O_CREAT | O_WRONLY | O_APPEND, 0660);
+                if (pipes_num == 0) {
                 close(STDOUT_FILENO);
                 dup(fd);
                 close(fd);
+                }
             }
             else if (redirect == 2)
             { /* redirect stderr */
                 fd = creat(outfile, 0660);
+                if (pipes_num == 0) {
                 close(STDERR_FILENO);
                 dup(fd);
                 close(fd);
+                }
             }
             else if (redirect == 4)
             { /* redirect stderr */
-                fd = open(infile, O_RDONLY | O_CREAT); 
+                fd = open(infile, O_RDONLY | O_CREAT);
+                if (pipes_num == 0) {
                 close(STDIN_FILENO);
                 dup(fd);
                 close(fd);
+                }
             }
             if (pipes_num > 0){
                 cur = root;
@@ -419,20 +423,35 @@ int main(){
                     }
                 }
                 /* Run last component (we need to output to the standart output) */
-                pid = fork();
-                if (pid == 0) {
+                //pid = fork();
+                //if (pid == 0) {
                     if (pipe_switcher % 2 == 0)
                         dup2(pipe_two[0], 0);
                     else
                         dup2(pipe_one[0], 0);
+
+                    if (redirect == 1) { /* redirect stdout */
+                        fd = creat(outfile, 0660);
+                        dup2(fd, STDOUT_FILENO);
+                    } else if (redirect == 3){ /* redirect stdout */
+                        fd = open(outfile, O_CREAT | O_WRONLY | O_APPEND, 0660);
+                        dup2(fd, STDOUT_FILENO);
+                    } else if (redirect == 2) { /* redirect stderr */
+                        fd = creat(outfile, 0660);
+                        dup2(fd, STDERR_FILENO);
+                    } else if (redirect == 4){ /* redirect stderr */
+                        fd = open(infile, O_RDONLY | O_CREAT); 
+                        dup2(fd, STDIN_FILENO);
+                    }
+
                     execvp(cur->command[0], cur->command);
                     exit(0);
-                } else {
-                    waitpid(pid, &status, 0);
+                //} else {
+                    //waitpid(pid, &status, 0);
                     close_pipe(pipe_one);
                     if (pipes_num > 1)
                         close_pipe(pipe_two);
-                }
+                //}
             } else {
                 execvp(root->command[0], root->command);
             }
